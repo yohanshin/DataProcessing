@@ -233,7 +233,7 @@ def calculate_accel_from_keypoints(keypoints, idx=2):
 def plot_and_save_analysis_fig(params, front_synced_imu_accel, front_kp_accel, 
                                end_synced_imu_accel, end_kp_accel):
     
-    output_fldr= osp.join(params['base_dir'], 'Syncing_Result', params['date'])
+    output_fldr = osp.join(params['base_dir'], 'Syncing_Result', params['date'])
     
     if not osp.exists(output_fldr):
         os.makedirs(output_fldr)

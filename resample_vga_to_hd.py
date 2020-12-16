@@ -65,10 +65,12 @@ fldr_hd = 'hdPose3d_stage1_op25'
 
 for date in dates:
     for exp in exps:
+        # If no experiments exists, skip the loop
         op26_fldr_vga = osp.join(base_dir, date, fldr_vga, exp)
         if not osp.exists(vga_op26_fldr):
             continue
         print("Processing %s %s ..."%(date, exp))
+        
         joints_vga, ids = load_op26(op26_fldr_vga)
 
         # Resampling it to HD fps

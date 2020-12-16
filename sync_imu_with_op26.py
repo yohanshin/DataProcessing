@@ -60,8 +60,8 @@ def load_IMU_Y_accel(params, path_imu, path_imu_anno):
     # Get current experiment data collection activity
     t_start_, t_end_ = t_start_date[params['exp']-1], t_end_date[params['exp']-1]
     idx_start = np.where(accel.index > 1000*t_start_)[0][0]
-    idx_end = np.where(accel.index < 1000*t_end_)[0][-1]
-
+    idx_end = np.where(accel.index < 1000*t_end_)[0][-1] + 3000     # buffer: 1000
+    
     # Temporal segmentation for current experiment
     accel = accel.loc[accel.index[idx_start : idx_end]]
     
@@ -80,7 +80,8 @@ def load_IMU_Y_accel(params, path_imu, path_imu_anno):
 
 
 def get_syncing_index(params):
-
+    """Return syncing index that matches IMU data to OP data"""
+    
     print("Syncing data Info: Date (%s), Exp (%d), Subject (%d)"
           %(params['date'], params['exp'], params['id']))
 
@@ -143,7 +144,7 @@ def get_syncing_index(params):
         synced_imu_accel = np.array(imu_accel)[diff:]
     else:
         synced_imu_accel = generate_imu_front_buffer(imu_accel, diff)
-
+    
     if kp_accel.shape[0] > synced_imu_accel.shape[0]:
         sz_diff = kp_accel.shape[0] - synced_imu_accel.shape[0]
         kp_accel = kp_accel[:kp_accel.index[-sz_diff]]
@@ -157,10 +158,7 @@ def get_syncing_index(params):
     check_ = calculate_RMSE(front_synced_imu_accel, front_kp_accel)
     assert rmse_result.min() == check_
     
-    # Manually check whether syncing is reasonable
-    if params['save_video']:
-        plot_convolutional_syncing_result(rmse_result, front_imu_accel, front_kp_accel, check_range)
-    
+    # Print the syncing result and see the result is reasonable
     if params['save_image']:
         if end_kp_peak.shape[0] == 0:
             end_kp_accel = np.array(kp_accel)[-3000:-12000]
@@ -181,6 +179,32 @@ def get_syncing_index(params):
     return synced_imu_index
 
 
+def sync_all_sensors(params, synced_imu_index, fldr_target):
+    """Given syncing index, sync IMU sensors and save files"""
+
+    # 15 sensors list
+    sensor_list = ["chest", "head", "lbicep", "lfoot", "lforearm", "lhand", "lshank", "lthigh",
+                   "rbicep", "rfoot", "rforearm", "rhand", "rshank", "rthigh", "sacrum"]
+    
+    for part in sensor_list:
+        fldr_raw, _ = get_imu_fldr(params, part)
+        
+        for sensor in ['accel', 'gyro']:
+            # Read data
+            data = pd.read_csv(os.path.join(fldr_raw, sensor+'.csv'), 
+                               index_col = 'Timestamp (microseconds)')
+            
+            # Interpolate and get synced data
+            synced_imu_index_ = delete_overlap_index(data.index, synced_imu_index)
+            empty_data = pd.DataFrame(index=synced_imu_index_, columns=data.columns)
+            data = data.append(empty_data).sort_index(axis=0)
+            data = data.interpolate(limit_area='inside')
+            data = data.loc[synced_imu_index]
+
+            # Save files
+            data.to_csv(os.path.join(fldr_target, '%s_%s.csv'%(part, sensor)))
+
+
 dates = ['190503', '190510', '190517', '190607']
 exps = ['exp01', 'exp02', 'exp03', 'exp04', 'exp05', 'exp06', 'exp07', 'exp08', 'exp09', 'exp10', 'exp11', 'exp12', 'exp13', 'exp14']
 ids = [1, 2]
@@ -199,16 +223,28 @@ params['save_image'] = True
 for date in dates:
     for exp in exps:
         fldr_kp = osp.join(base_dir, date, fldr_op26, exp)
+        fldr_target = osp.join(base_dir, date, fldr_target, exp)
+        
+        # If no experiments exists, skip the loop
         if not osp.exists(fldr_kp):
             continue
-            
+
         for _id in ids:
             params['date'] = date
             params['exp'] = int(exp[-2:])
             params['id'] = _id
 
+            # If only one subject exists in OP26, skip the loop
+            # TODO: implement one subject syncing
             kp, _ = refine_params(params)
             if kp['id'] == 100:
                 continue
 
-            get_syncing_index(params)
+            # If syncing already processed, skip the loop
+            result_fldr = osp.join(params['base_dir'], 'Syncing_Result', params['date'])
+            result_file = osp.join(result_fldr, 'Set%02d_exp%02d.png'%(params['id'], params['exp']))
+            if osp.exists(result_file):
+                continue
+
+            synced_imu_index = get_syncing_index(params)
+            # sync_all_sensors(params, synced_imu_index, fldr_target)

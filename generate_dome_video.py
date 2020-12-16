@@ -78,41 +78,53 @@ def project2D(x3d, K, R, t, dist=None):
 
 
 # Define experiments
-date = '190503'
-exp = 'exp01'
+dates = ['190503', '190510', '190517', '190607']
+exps = ['exp01', 'exp02', 'exp03', 'exp04', 'exp05', 'exp06', 'exp07', 'exp08', 'exp09', 'exp10', 'exp11', 'exp12', 'exp13', 'exp14']
 base_dir = 'dataset/MBL_DomeData/dome_data'
-op26_fldr = 'hdPose3d_stage1_op25'
+op26_fldr_ = 'hdPose3d_stage1_op25'
 img_fldr = 'skeleton_video'
 
-# Load OP26 data
-op26_fldr = osp.join(base_dir, date, op26_fldr, exp)
-joints, ids = load_op26(op26_fldr)
-_, _, op26_files = next(os.walk(op26_fldr))
-op26_files.sort()
+for date in dates:
+    for exp in exps:
+        # Load OP26 data
+        op26_fldr = osp.join(base_dir, date, op26_fldr_, exp)
 
-# Make projected 2D joints
-x2d_list = []
-for joints_, ids_ in zip(joints, ids):
-    x2d, mask = project2D(joints_, camera_info['K'], camera_info['R'], camera_info['t'])
-    x2d[~mask] = 0
-    x2d_list += [x2d]
+        # If video is already processed, skip the loop
+        target_output_fldr = osp.join(base_dir, date, img_fldr, exp)
+        if osp.exists(osp.join(target_output_fldr, 'out.mp4')):
+            continue
+        
+        os.makedirs(target_output_fldr, exist_ok=True)
+        
+        # If no experiments exists, skip the loop
+        if not osp.exists(op26_fldr):
+            continue
+        print("Processing %s %s ..."%(date, exp))
+        
+        joints, ids = load_op26(op26_fldr)
+        _, _, op26_files = next(os.walk(op26_fldr))
+        op26_files.sort()
 
-# Draw and save videos
-target_output_fldr = osp.join(base_dir, date, img_fldr, exp)
-os.makedirs(target_output_fldr, exist_ok=True)
+        # Make projected 2D joints
+        x2d_list = []
+        for joints_, ids_ in zip(joints, ids):
+            x2d, mask = project2D(joints_, camera_info['K'], camera_info['R'], camera_info['t'])
+            x2d[~mask] = 0
+            x2d_list += [x2d]
 
-background = np.ones((imh, imw, 3)).astype(np.uint8) * 255
-for frame_idx in tqdm(range(x2d_list[0].shape[0]), desc='Drawing skeleton...', leave=False):
-    img = background.copy()
-    for subj_idx, x2d_ in enumerate(x2d_list):
-        x = x2d_[frame_idx, :, 0].astype('int32')
-        y = x2d_[frame_idx, :, 1].astype('int32')
-        img = vu.draw_2d_skeleton(x, y, img.copy(), subj_idx, "op26", frame_idx)
+        # Draw and save videos
+        background = np.ones((imh, imw, 3)).astype(np.uint8) * 255
+        for frame_idx in tqdm(range(x2d_list[0].shape[0]), desc='Drawing skeleton...', leave=False):
+            img = background.copy()
+            for subj_idx, x2d_ in enumerate(x2d_list):
+                x = x2d_[frame_idx, :, 0].astype('int32')
+                y = x2d_[frame_idx, :, 1].astype('int32')
+                img = vu.draw_2d_skeleton(x, y, img.copy(), subj_idx, "op26", frame_idx)
 
-    img = cv2.putText(img, text="Frame " + op26_files[frame_idx][-10:-5], org=(200, 30), fontFace=cv2.FONT_HERSHEY_SIMPLEX, 
-                      fontScale=0.5, color=(30, 30, 30), thickness=2)
-    img_n = "dome_video_%08d.jpg"%frame_idx
-    cv2.imwrite(osp.join(target_output_fldr, img_n), img)
+            img = cv2.putText(img, text="Frame " + op26_files[frame_idx][-10:-5], org=(200, 30), fontFace=cv2.FONT_HERSHEY_SIMPLEX, 
+                            fontScale=0.5, color=(30, 30, 30), thickness=2)
+            img_n = "dome_video_%08d.jpg"%frame_idx
+            cv2.imwrite(osp.join(target_output_fldr, img_n), img)
 
-os.system("ffmpeg -framerate 29.97 -start_number 0 -i {}/dome_video_%08d.jpg".format(target_output_fldr) + " -vcodec mpeg4 {}/out.mp4".format(target_output_fldr))
-os.system("echo y")
+        os.system("ffmpeg -framerate 29.97 -start_number 0 -i {}/dome_video_%08d.jpg".format(target_output_fldr) + " -vcodec mpeg4 {}/out.mp4".format(target_output_fldr))
+        os.system("echo y")
