@@ -1,4 +1,5 @@
 from utils.load_data import load_json
+from utils import constants
 
 import os, sys
 import os.path as osp
@@ -59,7 +60,7 @@ def refine_ids(prev_ids, curr_ids, curr_joints):
 
 dates = ['190503']
 exps = ['imu01']
-base_dir = 'dataset/MBL_DomeData/'
+base_dir = 'dataset/MBL_DomeData/dome_data'
 curr_fldr = 'hdPose3d_stage1_op25'
 target_fldr = 'hdPose3d_stage2_op25'
 

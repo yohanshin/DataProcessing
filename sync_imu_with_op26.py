@@ -1,5 +1,6 @@
 from utils.sync_utils import *
 from utils.load_data import *
+from utils.viz import plot_and_save_analysis_fig, plot_sliding_with_index
 
 import numpy as np
 import pandas as pd

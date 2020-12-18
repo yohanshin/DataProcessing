@@ -228,39 +228,3 @@ def calculate_accel_from_keypoints(keypoints, idx=2):
     accel_[1:-1] = accel
 
     return accel, height
-
-
-def plot_and_save_analysis_fig(params, front_synced_imu_accel, front_kp_accel, 
-                               end_synced_imu_accel, end_kp_accel):
-    
-    output_fldr = osp.join(params['base_dir'], 'Syncing_Result', params['date'])
-    
-    if not osp.exists(output_fldr):
-        os.makedirs(output_fldr)
-    
-    fig = plt.figure(figsize=(10,5))
-    front_ax, end_ax = fig.add_subplot(1, 2, 1), fig.add_subplot(1, 2, 2)
-    plt.suptitle("Syncing result (Left : front hopping, Right : End hopping)", 
-                 y=0.95, fontsize=14)
-
-    plot_sliding_with_index(0, front_synced_imu_accel, front_kp_accel, 
-                            check_range=1, ax=front_ax)
-    plot_sliding_with_index(0, end_synced_imu_accel, end_kp_accel, 
-                            check_range=1, ax=end_ax)
-    filename = 'Set%02d_exp%02d.png'%(params['id'], params['exp'])
-    plt.savefig(osp.join(output_fldr, filename))
-    plt.close()
-
-
-def plot_sliding_with_index(index, imu_accel, kp_accel, check_range=200, ax=None):
-    
-    if ax is None:
-        fig = plt.figure()
-        ax = fig.add_subplot(1, 1, 1)
-
-    start_idx, end_idx = index, index - check_range
-    ax.plot(imu_accel[start_idx:end_idx], color='tab:red', label='IMU')
-    ax.plot(kp_accel, color='tab:blue', label='KP')
-    ax.legend()
-    
-    pass

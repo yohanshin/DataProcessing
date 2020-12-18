@@ -30,29 +30,3 @@ COLOR_DICT = {
         (60,179,113), (60,179,113), (60,179,113)    # right foot
     ]
 }
-
-
-def draw_2d_skeleton(x, y, img, subj_idx, joint_type, fidx):
-    """ Draw 2D skeleton model """
-
-    for idx, index_set in enumerate(CONNECTIVITY_DICT[joint_type]):
-        xs, ys = [], []
-        for index in index_set:
-            if (x[index] > 1e-5 and y[index] > 1e-5):
-                xs.append(x[index])
-                ys.append(y[index])
-
-        if len(xs) == 2:
-            # Draw line
-            start = (xs[0], ys[0])
-            end = (xs[1], ys[1])
-            img = cv2.line(img, start, end, COLOR_DICT[joint_type][idx], 3)
-        
-    # Write subject index
-    if len(y[y>1e-5]) != 0 and y[y>1e-5].min() > 10:
-        loc = (int(x[x>1e-5].mean()), int(y[y>1e-5].min() - 5))
-        text_color = (209, 80, 0) if subj_idx == 0 else (80, 209, 0)
-        img = cv2.putText(img, text="Set%02d"%(subj_idx + 1), org=loc, fontFace=cv2.FONT_HERSHEY_SIMPLEX, 
-                          fontScale=0.5, color=text_color, thickness=2)
-
-    return img
