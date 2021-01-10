@@ -1,5 +1,5 @@
 from utils.load_data import load_op26
-from utils import viz_utils as vu
+from utils.viz import draw_2d_skeleton
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -78,10 +78,10 @@ def project2D(x3d, K, R, t, dist=None):
 
 
 # Define experiments
-dates = ['190503', '190510', '190517', '190607']
+dates = ['190503', '190510', '190517']
 exps = ['exp01', 'exp02', 'exp03', 'exp04', 'exp05', 'exp06', 'exp07', 'exp08', 'exp09', 'exp10', 'exp11', 'exp12', 'exp13', 'exp14']
 base_dir = 'dataset/MBL_DomeData/dome_data'
-op26_fldr_ = 'hdPose3d_stage1_op25'
+op26_fldr_ = 'hdPose3d_stage2_op25'
 img_fldr = 'skeleton_video'
 
 for date in dates:
@@ -90,11 +90,12 @@ for date in dates:
         op26_fldr = osp.join(base_dir, date, op26_fldr_, exp)
 
         # If video is already processed, skip the loop
-        target_output_fldr = osp.join(base_dir, date, img_fldr, exp)
-        if osp.exists(osp.join(target_output_fldr, 'out.mp4')):
+        images_fldr = osp.join(base_dir, date, img_fldr, exp)
+        video_fldr = osp.join(base_dir, date, img_fldr)
+        if osp.exists(osp.join(base_dir, date, img_fldr, '%s.mp4'%exp)):
             continue
         
-        os.makedirs(target_output_fldr, exist_ok=True)
+        os.makedirs(images_fldr, exist_ok=True)
         
         # If no experiments exists, skip the loop
         if not osp.exists(op26_fldr):
@@ -119,12 +120,12 @@ for date in dates:
             for subj_idx, x2d_ in enumerate(x2d_list):
                 x = x2d_[frame_idx, :, 0].astype('int32')
                 y = x2d_[frame_idx, :, 1].astype('int32')
-                img = vu.draw_2d_skeleton(x, y, img.copy(), subj_idx, "op26", frame_idx)
+                img = draw_2d_skeleton(x, y, img.copy(), subj_idx, "op26", frame_idx)
 
             img = cv2.putText(img, text="Frame " + op26_files[frame_idx][-10:-5], org=(200, 30), fontFace=cv2.FONT_HERSHEY_SIMPLEX, 
                             fontScale=0.5, color=(30, 30, 30), thickness=2)
             img_n = "dome_video_%08d.jpg"%frame_idx
-            cv2.imwrite(osp.join(target_output_fldr, img_n), img)
+            cv2.imwrite(osp.join(images_fldr, img_n), img)
 
-        os.system("ffmpeg -framerate 29.97 -start_number 0 -i {}/dome_video_%08d.jpg".format(target_output_fldr) + " -vcodec mpeg4 {}/out.mp4".format(target_output_fldr))
+        os.system("ffmpeg -framerate 29.97 -start_number 0 -i {}/dome_video_%08d.jpg".format(images_fldr) + " -vcodec mpeg4 {}".format(video_fldr) + "/{}.mp4".format(exp))
         os.system("echo y")

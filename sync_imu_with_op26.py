@@ -1,6 +1,6 @@
 from utils.sync_utils import *
 from utils.load_data import *
-from utils.viz import plot_and_save_analysis_fig, plot_sliding_with_index
+from utils.viz import *
 
 import numpy as np
 import pandas as pd
@@ -61,7 +61,7 @@ def load_IMU_Y_accel(params, path_imu, path_imu_anno):
     # Get current experiment data collection activity
     t_start_, t_end_ = t_start_date[params['exp']-1], t_end_date[params['exp']-1]
     idx_start = np.where(accel.index > 1000*t_start_)[0][0]
-    idx_end = np.where(accel.index < 1000*t_end_)[0][-1] + 3000     # buffer: 1000
+    idx_end = np.where(accel.index < 1000*t_end_)[0][-1] + 3000     # buffer: 3000
     
     # Temporal segmentation for current experiment
     accel = accel.loc[accel.index[idx_start : idx_end]]
@@ -210,7 +210,7 @@ dates = ['190503', '190510', '190517', '190607']
 exps = ['exp01', 'exp02', 'exp03', 'exp04', 'exp05', 'exp06', 'exp07', 'exp08', 'exp09', 'exp10', 'exp11', 'exp12', 'exp13', 'exp14']
 ids = [1, 2]
 base_dir = 'dataset/MBL_DomeData/dome_data'
-fldr_op26 = 'hdPose3d_stage1_op25'
+fldr_op26 = 'hdPose3d_stage2_op25'
 fldr_raw_imu = 'dataset/dome_IMU'
 fldr_target = 'mc10_IMU'
 

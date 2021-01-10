@@ -60,18 +60,18 @@ def resampling(joints_bf):
 dates = ['190503', '190510', '190517', '190607']
 exps = ['exp01', 'exp02', 'exp03', 'exp04', 'exp05', 'exp06', 'exp07', 'exp08', 'exp09', 'exp10', 'exp11', 'exp12', 'exp13', 'exp14']
 base_dir = 'dataset/MBL_DomeData/dome_data'
-fldr_vga = 'vgaPose3d_stage1_op25'
-fldr_hd = 'hdPose3d_stage1_op25'
+vga_fldr = 'vgaPose3d_stage1_op25'
+hd_fldr = 'hdPose3d_stage1_op25'
 
 for date in dates:
     for exp in exps:
         # If no experiments exists, skip the loop
-        op26_fldr_vga = osp.join(base_dir, date, fldr_vga, exp)
+        op26_vga_fldr = osp.join(base_dir, date, vga_fldr, exp)
         if not osp.exists(vga_op26_fldr):
             continue
         print("Processing %s %s ..."%(date, exp))
         
-        joints_vga, ids = load_op26(op26_fldr_vga)
+        joints_vga, ids = load_op26(op26_vga_fldr)
 
         # Resampling it to HD fps
         joints_hd = []
@@ -80,8 +80,8 @@ for date in dates:
             joints_hd += [joint_hd]
 
         # Write resampled data
-        op26_fldr_hd = osp.join(base_dir, date, fldr_hd, exp)
-        os.makedirs(op26_fldr_hd, exist_ok=True)
+        op26_hd_fldr = osp.join(base_dir, date, hd_fldr, exp)
+        os.makedirs(op26_hd_fldr, exist_ok=True)
         
         for frame in trange(joint_hd.shape[0], desc='Writing HD data...', leave=False):
             file_info = dict()
@@ -101,5 +101,5 @@ for date in dates:
                 ids["joints26"] = joints26
                 file_info["bodies"].append(ids)
 
-            with open(osp.join(op26_fldr_hd, 'body3DScene_%08d.json'%frame), 'w') as make_file:
+            with open(osp.join(op26_hd_fldr, 'body3DScene_%08d.json'%frame), 'w') as make_file:
                 json.dump(file_info, make_file, indent=4)

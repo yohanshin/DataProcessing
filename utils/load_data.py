@@ -68,6 +68,7 @@ def load_op26(path, num_file=-1):
     Output : index, 26 joints location for entire frames
     """
     _, _, files_ = next(os.walk(path))
+    files_ = [file_ for file_ in files_ if (file_[0] == 'b' and file_[-1] == 'n')]
     files_.sort()
     joints = []
     n_file = len(files_) if num_file == -1 else num_file

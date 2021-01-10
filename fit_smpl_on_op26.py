@@ -40,7 +40,8 @@ body_pose_prior_weights = [10.0, 4.0, 2.0, 0.5]
 shape_prior_weight = [1e2, 2 * 1e1, 1e1, 4.0]
 
 # # Exp configuration TODO: Make it as a parser
-dates = ['190503', '190510', '190517', '190607']
+# dates = ['190503', '190510', '190517', '190607']
+dates = ['190510']
 exps = ['exp01', 'exp02', 'exp03', 'exp04', 'exp05', 'exp06', 'exp07', 'exp08', 'exp09', 'exp10', 'exp11', 'exp12', 'exp13', 'exp14']
 sids = [1, 2]
 base_dir = 'dataset/MBL_DomeData/dome_data'
@@ -90,10 +91,9 @@ for date in dates:
         
         if save_image:
             fldr_save_image = osp.join(base_dir, date, fldr_image, exp)
-            if osp.exists(osp.join(fldr_save_image)):
+            os.makedirs(fldr_save_image, exist_ok=True)
+            if osp.exists(osp.join(base_dir, date, fldr_image, '%s.mp4'%exp)):
                 continue
-            else:
-                os.makedirs(fldr_save_image)
         
         output = {}
         output['SMPL_params'] = []
@@ -174,4 +174,5 @@ for date in dates:
                     
             output['SMPL_params'] = np.concatenate(output['SMPL_params'])
             fldr_output = osp.join(base_dir, date, fldr_result)
+            os.makedirs(fldr_output, exist_ok=True)
             np.save(osp.join(fldr_output, '%s_sid%02d'%(exp, sid)), output)
