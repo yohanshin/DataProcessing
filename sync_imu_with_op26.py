@@ -16,10 +16,6 @@ __author__ = "Soyong Shin"
 """ Sync IMU data with given keypoints data
 """
 
-fps_vga = 25.0
-fps_hd = 29.97
-fps_imu = 125.0
-
 
 def calculate_RMSE(imu, kp):
     return np.sqrt(((imu - kp)**2).mean())
@@ -38,9 +34,9 @@ def load_OP26_Y_accel(params, path_kp):
 
     # Get peak clue where the hopping occurs
     begin_hop_idx = np.where(sacrum_height == sacrum_height[:1200].min())[0][0]
-    begin_hop_idx = int((fps_imu/fps_hd) * (begin_hop_idx - 1))
+    begin_hop_idx = int((fps_imu/fps_op26) * (begin_hop_idx - 1))
     end_hop_idx = np.where(sacrum_height == sacrum_height[-3000:].min())[0][0]
-    end_hop_idx = int((fps_imu/fps_hd) * (end_hop_idx - 1))
+    end_hop_idx = int((fps_imu/fps_op26) * (end_hop_idx - 1))
 
     return accel, begin_hop_idx, end_hop_idx
 
@@ -105,9 +101,9 @@ def get_syncing_index(params):
     imu_peak, kp_peak = refine_peaks(imu_accel, kp_accel, imu_peak, kp_peak)
 
     # Classify front and end (two hopping activities) of keypoints data
-    is_front_kp_peak = kp_peak < 5000
+    is_front_kp_peak = kp_peak < 6000
     is_front_kp_peak = pd.DataFrame(np.where(np.array(is_front_kp_peak)==True)[0])[0]
-    is_end_kp_peak = kp_peak > kp_accel.shape[0] - 5000
+    is_end_kp_peak = kp_peak > kp_accel.shape[0] - 6000
     is_end_kp_peak = pd.DataFrame(np.where(np.array(is_end_kp_peak)==True)[0])[0]
     front_kp_peak = kp_peak[kp_peak.index[is_front_kp_peak]]
     end_kp_peak = kp_peak[kp_peak.index[is_end_kp_peak]]
@@ -150,7 +146,7 @@ def get_syncing_index(params):
         sz_diff = kp_accel.shape[0] - synced_imu_accel.shape[0]
         kp_accel = kp_accel[:kp_accel.index[-sz_diff]]
         print("OpenPose data is longer than IMU data. Need to remove last %d frames of OpenPose data..."\
-            %int(sz_diff/(fps_imu/fps_hd) + 1))
+            %int(sz_diff/(fps_imu/fps_op26) + 1))
     else:
         synced_imu_accel = synced_imu_accel[:kp_accel.shape[0]]
 
@@ -162,12 +158,12 @@ def get_syncing_index(params):
     # Print the syncing result and see the result is reasonable
     if params['save_image']:
         if end_kp_peak.shape[0] == 0:
-            end_kp_accel = np.array(kp_accel)[-3000:-12000]
-            end_synced_imu_accel = synced_imu_accel[-3000:-1200]
+            end_kp_accel = np.array(kp_accel)[-3600:-1500]
+            end_synced_imu_accel = synced_imu_accel[-3600:-1500]
         
         else:
             end_idx_ = end_kp_peak.max() + buffer if kp_accel.shape[0] - end_kp_peak.max() > buffer else -1
-            start_idx_ = max(end_kp_peak.min(), end_idx_ - 1200)
+            start_idx_ = max(end_kp_peak.min(), end_idx_ - 3000)
             end_kp_accel = np.array(kp_accel)[start_idx_:end_idx_]
             end_synced_imu_accel = synced_imu_accel[start_idx_:end_idx_]
         
