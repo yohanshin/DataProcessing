@@ -1,5 +1,5 @@
 from utils.load_data import load_json
-from utils import constants
+from utils import constants as _C
 
 import os, sys
 import os.path as osp
@@ -58,15 +58,13 @@ def refine_ids(prev_ids, curr_ids, curr_joints):
     return prev_ids, curr_ids
 
 
-# dates = ['190503', '190510', '190517']
-dates = ['190503']
-# exps = ['exp01', 'exp02', 'exp03', 'exp04', 'exp05', 'exp06', 'exp07', 'exp08', 'exp09', 'exp10', 'exp11', 'exp12', 'exp13', 'exp14']
-exps = ['exp01', 'exp02', 'exp03']
-base_dir = 'dataset/MBL_DomeData/dome_data'
-curr_fldr = 'hdPose3d_stage1_op25'
-target_fldr = 'hdPose3d_stage2_op25'
+dates = _C.BASE_RAW_DATA_DIR
+exps = _C.EXP_SEQUENCES
+base_dir = _C.BASE_RAW_DATA_DIR
+curr_fldr = _C.HD_KEYPOINTS_STAGE1_FLDR
+target_fldr = _C.HD_KEYPOINTS_STAGE2_FLDR
 
-singular_exps = ['190517_exp12', '190607_imu12']
+singular_exps = _C.EXP_SINGULAR
 
 for date in dates:
     for exp in exps:

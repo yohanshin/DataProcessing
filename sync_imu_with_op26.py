@@ -1,6 +1,7 @@
 from utils.sync_utils import *
 from utils.load_data import *
 from utils.viz import *
+from utils import constants as _C
 
 import numpy as np
 import pandas as pd
@@ -42,7 +43,7 @@ def load_OP26_Y_accel(params, path_kp):
 
 
 def load_IMU_Y_accel(params, path_imu, path_imu_anno):
-    accel = pd.read_csv(path_imu, index_col = 'Timestamp (microseconds)')
+    accel = pd.read_csv(path_imu, index_col = _C.INDEX_COL)
     accel = accel['Accel Y (g)']
     
     # Load annotation file and get data collection time
@@ -179,36 +180,38 @@ def get_syncing_index(params):
 def sync_all_sensors(params, synced_imu_index, fldr_target):
     """Given syncing index, sync IMU sensors and save files"""
 
-    # 15 sensors list
-    sensor_list = ["chest", "head", "lbicep", "lfoot", "lforearm", "lhand", "lshank", "lthigh",
-                   "rbicep", "rfoot", "rforearm", "rhand", "rshank", "rthigh", "sacrum"]
+    os.makedirs(fldr_target, exist_ok=True)
     
-    for part in sensor_list:
-        fldr_raw, _ = get_imu_fldr(params, part)
+    # 15 sensors list
+    part_list = _C.IMU_PARTS
+    
+    for part in tqdm(part_list, desc='Writing file in %s'%fldr_target, leave=False):
+        fldr_raw = osp.join(params['IMU_dir'], 'Set%02d'%params['id'], params['date'], part)
         
-        for sensor in ['accel', 'gyro']:
+        for sensor in _C.SENSORS:
             # Read data
             data = pd.read_csv(os.path.join(fldr_raw, sensor+'.csv'), 
-                               index_col = 'Timestamp (microseconds)')
+                               index_col=_C.INDEX_COL)
             
             # Interpolate and get synced data
             synced_imu_index_ = delete_overlap_index(data.index, synced_imu_index)
             empty_data = pd.DataFrame(index=synced_imu_index_, columns=data.columns)
             data = data.append(empty_data).sort_index(axis=0)
-            data = data.interpolate(limit_area='inside')
+            data = data.interpolate(limit_area='inside', method='index')
             data = data.loc[synced_imu_index]
 
             # Save files
-            data.to_csv(os.path.join(fldr_target, '%s_%s.csv'%(part, sensor)))
+            data.to_csv(os.path.join(fldr_target, '%s_%s.csv'%(part, sensor)), 
+                        index_label=_C.INDEX_COL)
 
 
-dates = ['190503', '190510', '190517', '190607']
-exps = ['exp01', 'exp02', 'exp03', 'exp04', 'exp05', 'exp06', 'exp07', 'exp08', 'exp09', 'exp10', 'exp11', 'exp12', 'exp13', 'exp14']
+dates = _C.EXP_DATES
+exps = _C.EXP_SEQUENCES
 ids = [1, 2]
-base_dir = 'dataset/MBL_DomeData/dome_data'
-fldr_op26 = 'hdPose3d_stage2_op25'
-fldr_raw_imu = 'dataset/dome_IMU'
-fldr_target = 'mc10_IMU'
+base_dir = _C.BASE_RAW_DATA_DIR
+fldr_op26 = _C.HD_KEYPOINTS_STAGE2_FLDR
+fldr_raw_imu = _C.RAW_IMU_DIR
+fldr_target_ = _C.SYNCED_IMU_FLDR
 
 params = dict()
 params['IMU_dir'] = fldr_raw_imu
@@ -220,7 +223,6 @@ params['save_image'] = True
 for date in dates:
     for exp in exps:
         fldr_kp = osp.join(base_dir, date, fldr_op26, exp)
-        fldr_target = osp.join(base_dir, date, fldr_target, exp)
         
         # If no experiments exists, skip the loop
         if not osp.exists(fldr_kp):
@@ -244,4 +246,5 @@ for date in dates:
                 continue
 
             synced_imu_index = get_syncing_index(params)
-            # sync_all_sensors(params, synced_imu_index, fldr_target)
+            fldr_target = osp.join(base_dir, date, fldr_target_, 'Set%02d'%params['id'], exp)
+            sync_all_sensors(params, synced_imu_index, fldr_target)

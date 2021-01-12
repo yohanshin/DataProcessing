@@ -1,4 +1,5 @@
 from utils.load_data import load_op26
+from utils import constants as _C
 
 import numpy as np
 import pandas as pd
@@ -57,11 +58,11 @@ def resampling(joints_bf):
     return joints_af
 
 
-dates = ['190503', '190510', '190517', '190607']
-exps = ['exp01', 'exp02', 'exp03', 'exp04', 'exp05', 'exp06', 'exp07', 'exp08', 'exp09', 'exp10', 'exp11', 'exp12', 'exp13', 'exp14']
-base_dir = 'dataset/MBL_DomeData/dome_data'
-vga_fldr = 'vgaPose3d_stage1_op25'
-hd_fldr = 'hdPose3d_stage1_op25'
+dates = _C.EXP_DATES
+exps = _C.EXP_SEQUENCES
+base_dir = _C.BASE_RAW_DATA_DIR
+vga_fldr = _C.VGA_KEYPOINTS_STAGE1_FLDR
+hd_fldr = _C.HD_KEYPOINTS_STAGE1_FLDR
 
 for date in dates:
     for exp in exps:

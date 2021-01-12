@@ -5,6 +5,31 @@ If a dataset doesn't provide annotations for a specific joint, we simply ignore 
 The joints used here are the following:
 """
 
+# Folder configuration
+BASE_RAW_DATA_DIR = 'dataset/MBL_DomeData/dome_data'
+VGA_KEYPOINTS_STAGE1_FLDR = 'vgaPose3d_stage1_op25'
+HD_KEYPOINTS_STAGE1_FLDR = 'hdPose3d_stage1_op25'
+HD_KEYPOINTS_STAGE2_FLDR = 'hdPose3d_stage2_op25'
+RAW_IMU_DIR = 'dataset/dome_IMU'
+SYNCED_IMU_FLDR = 'mc10_IMU'
+SEGMENTED_DATA_FLDR = 'Processed'
+SEGMENTED_KEYPOINTS_FLDR = 'OpenPose3D'
+SEGMENTED_IMU_FLDR = 'MC10_IMU'
+ACTION_LABEL_FILENAME = 'action_label.xlsx'
+
+# IMU sensor list
+IMU_PARTS = ['chest', 'head', 'lbicep', 'lfoot', 'lforearm', 'lhand', 'lshank', 'lthigh',
+             'rbicep', 'rfoot', 'rforearm', 'rhand', 'rshank', 'rthigh', 'sacrum']
+INDEX_COL = 'Timestamp (microseconds)'
+SENSORS = ['accel', 'gyro']
+
+# Experiments configuration
+EXP_DATES = ['190503', '190510', '190517', '190607']
+EXP_SEQUENCES = ['exp01', 'exp02', 'exp03', 'exp04', 'exp05', 'exp06', 'exp07', 'exp08', 
+                 'exp09', 'exp10', 'exp11', 'exp12', 'exp13', 'exp14']
+EXP_SUBJECTS = ['Set01', 'Set02']
+EXP_SINGULAR = ['190517_exp12', '190607_exp11']
+
 SMPL_TO_H36 = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 18, 14, 16, 17]
 H36M_TO_J17 = [6, 5, 4, 1, 2, 3, 16, 15, 14, 11, 12, 13, 8, 10, 0, 7, 9]
 J32_TO_J17 = [3, 2, 1, 6, 7, 8, 27, 26, 25, 17, 18, 19, 24, 15, 11, 12, 14]
