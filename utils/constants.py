@@ -10,8 +10,12 @@ BASE_RAW_DATA_DIR = 'dataset/MBL_DomeData/dome_data'
 VGA_KEYPOINTS_STAGE1_FLDR = 'vgaPose3d_stage1_op25'
 HD_KEYPOINTS_STAGE1_FLDR = 'hdPose3d_stage1_op25'
 HD_KEYPOINTS_STAGE2_FLDR = 'hdPose3d_stage2_op25'
+
+IMAGE_FLDR = 'skeleton_video'
+
 RAW_IMU_DIR = 'dataset/dome_IMU'
 SYNCED_IMU_FLDR = 'mc10_IMU'
+
 SEGMENTED_DATA_FLDR = 'Processed'
 SEGMENTED_KEYPOINTS_FLDR = 'OpenPose3D'
 SEGMENTED_IMU_FLDR = 'MC10_IMU'

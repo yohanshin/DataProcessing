@@ -1,5 +1,6 @@
 from utils.load_data import load_op26
 from utils.viz import draw_2d_skeleton
+from utils import constants as _C
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -78,11 +79,11 @@ def project2D(x3d, K, R, t, dist=None):
 
 
 # Define experiments
-dates = ['190503', '190510', '190517']
-exps = ['exp01', 'exp02', 'exp03', 'exp04', 'exp05', 'exp06', 'exp07', 'exp08', 'exp09', 'exp10', 'exp11', 'exp12', 'exp13', 'exp14']
-base_dir = 'dataset/MBL_DomeData/dome_data'
-op26_fldr_ = 'hdPose3d_stage2_op25'
-img_fldr = 'skeleton_video'
+dates = _C.EXP_DATES
+exps = _C.EXP_SEQUENCES
+base_dir = _C.BASE_RAW_DATA_DIR
+op26_fldr_ = _C.HD_KEYPOINTS_STAGE2_FLDR
+img_fldr = _C.IMAGE_FLDR
 
 for date in dates:
     for exp in exps:
