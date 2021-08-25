@@ -67,6 +67,7 @@ def load_op26(path, num_file=-1):
             num_file is not -1 only if trying to load fewer data
     Output : index, 26 joints location for entire frames
     """
+    
     _, _, files_ = next(os.walk(path))
     files_ = [file_ for file_ in files_ if (file_[0] == 'b' and file_[-1] == 'n')]
     files_.sort()
@@ -75,6 +76,12 @@ def load_op26(path, num_file=-1):
     with tqdm(total=n_file, desc='Loading OP26 data...', leave=False) as prog_bar:
         for file_ in files_[:n_file]:
             ids, cur_joints = load_json(os.path.join(path, file_))
+            
+            if cur_joints.shape[0] == 1 and len(ids) != 0 and type(ids[0]) == str:
+                # Processed data
+                cur_joints = [cur_joints[0]]
+                ids = [0]
+
             for id in ids:
                 if len(joints) == 0:
                     joints.append(cur_joints[0][None])
@@ -93,3 +100,28 @@ def load_op26(path, num_file=-1):
         joints[1] = joints[1][150:]
     
     return joints, ids
+
+
+def load_camera_calib(filename, cam_type='hd'):
+    camera_infos = dict()
+
+    with open(filename) as json_file:
+        calib = json.load(json_file)
+        datasource = calib['calibDataSource']
+        cameras = calib['cameras']
+        for camera in cameras:
+            if camera['type'] != cam_type:
+                continue
+
+            camera_info = dict()
+            camera_name = '_'.join((camera['type'], camera['name']))
+            camera_info['camera_name'] = camera_name
+            camera_info['camera_dist'] = np.array(camera['distCoef'])
+            camera_info['camera_pose'] = np.array(camera['R'])
+            camera_info['camera_intrinsics'] = np.array(camera['K'])
+            camera_info['camera_transl'] = np.array(camera['t'])
+            camera_info['resolution'] = camera['resolution']
+
+            camera_infos[camera_name] = camera_info
+
+    return camera_infos

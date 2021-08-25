@@ -1,4 +1,4 @@
-from utils.viz_utils import CONNECTIVITY_DICT, COLOR_DICT
+from utils.viz_utils import CONNECTIVITY_DICT, COLOR_DICT, COLOR_DICT_KEYPOINTS
 
 import numpy as np
 import torch
@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 import trimesh
 import pyrender
 
+import math
 import os
 import os.path as osp
 from copy import copy
@@ -20,28 +21,79 @@ __author__ = "Soyong Shin"
 
 # # Draw Skeleton
 
-def draw_2d_skeleton(x, y, img, subj_idx, joint_type, fidx):
-    """ Draw 2D skeleton model """
+def rgb_to_bgr(color_rgb):
+    return np.array(color_rgb[::-1]).tolist()
 
+
+def draw_2d_skeleton_for_configuration(x, y, img, joint_type='op26', linewidth=4):
+    """ Draw 2D skeleton model for configuration file """
+    for i in range(26):
+        if (x[i]> 1e-5 and y[i] > 1e-5):
+            img = cv2.circle(img, (x[i], y[i]), linewidth, rgb_to_bgr(COLOR_DICT_KEYPOINTS[joint_type][i]), thickness=-1) 
+    
+    # Get line segments        
     for idx, index_set in enumerate(CONNECTIVITY_DICT[joint_type]):
         xs, ys = [], []
         for index in index_set:
             if (x[index] > 1e-5 and y[index] > 1e-5):
                 xs.append(x[index])
                 ys.append(y[index])
+        
+        X = np.array(xs).astype(int)
+        Y = np.array(ys).astype(int)
+        
+        # Draw line as elipsoid
+        if len(xs) == 2:
+            curr_img = img.copy()
+            mX = X.mean()
+            mY = Y.mean()
+            length = np.sqrt((Y[0] - Y[1])**2 + (X[0] - X[1])**2)
+            angle = math.degrees(math.atan2(Y[0]-Y[1], X[0]-X[1]))
+            polygon = cv2.ellipse2Poly((int(mX), int(mY)), (int(length/2), linewidth), int(angle), 0, 360, 1)
+            cv2.fillConvexPoly(curr_img, polygon, rgb_to_bgr(COLOR_DICT[joint_type][idx]))
+            img = cv2.addWeighted(img, 0.4, curr_img, 0.6, 0)
+    
+    # Add keypoints index
+    unit = 35
+    buffer = [(unit/2, 2*unit), (0, 1.5*unit), (unit/2, -unit), # Body 
+              (unit, 0), (unit, 0), (unit, 0), (unit/2, 0), (unit, 0), (unit/2, 0), # Right arm & leg 
+              (-1.5*unit, 0), (-2.5*unit, 0), (-2.5*unit, 0), (-2.5*unit, 0), (-2.5*unit, 0), (-2.5*unit, 0), # Left arm and leg 
+              (0, -unit/2), (unit*2/3, unit/3), (-2*unit, -unit), (-2.5*unit, 0), # Face
+              (-2.2*unit, 0), (unit/3, 0), (-2*unit, 0), (unit/2, unit/3), (-2.5*unit, 0), (0, -unit/2), # Feet
+              (0, -unit)]
+    for i in range(26):
+        if (x[i] > 1e-5 and y[i] > 1e-5):
+            x_ = x[i] + int(buffer[i][0])
+            y_ = y[i] + int(buffer[i][1])
+            cv2.putText(img, str(i), (x_, y_), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (255, 255, 255), thickness=3, lineType=cv2.LINE_8) 
 
+    return img
+ 
+
+def draw_2d_skeleton(x, y, img, subj_idx=None, joint_type='op26', linewidth=3):
+    """ Draw 2D skeleton model """
+
+    for idx, index_set in enumerate(CONNECTIVITY_DICT[joint_type]):
+        # Get line segments
+        xs, ys = [], []
+        for index in index_set:
+            if (x[index] > 1e-5 and y[index] > 1e-5):
+                xs.append(x[index])
+                ys.append(y[index])
+        
         if len(xs) == 2:
             # Draw line
             start = (xs[0], ys[0])
             end = (xs[1], ys[1])
-            img = cv2.line(img, start, end, COLOR_DICT[joint_type][idx], 3)
-        
+            img = cv2.line(img, start, end, rgb_to_bgr(COLOR_DICT[joint_type][idx]), thickness=linewidth)
+
     # Write subject index
-    if len(y[y>1e-5]) != 0 and y[y>1e-5].min() > 10:
-        loc = (int(x[x>1e-5].mean()), int(y[y>1e-5].min() - 5))
-        text_color = (209, 80, 0) if subj_idx == 0 else (80, 209, 0)
-        img = cv2.putText(img, text="Set%02d"%(subj_idx + 1), org=loc, fontFace=cv2.FONT_HERSHEY_SIMPLEX, 
-                          fontScale=0.5, color=text_color, thickness=2)
+    if subj_idx is not None:
+        if len(y[y>1e-5]) != 0 and y[y>1e-5].min() > 10:
+            loc = (int(x[x>1e-5].mean()), int(y[y>1e-5].min() - 5))
+            text_color = (209, 80, 0) if subj_idx == 0 else (80, 209, 0)
+            img = cv2.putText(img, text="Set%02d"%(subj_idx + 1), org=loc, fontFace=cv2.FONT_HERSHEY_SIMPLEX, 
+                              fontScale=0.5, color=text_color, thickness=2)
 
     return img
 
@@ -60,6 +112,13 @@ def draw_3d_skeleton(joints, ax=None, conf=None, joint_type='op26'):
     ax.set_ylim(-270, 000)
     ax.set_zlim(-135, 135)
 
+    # Draw ground
+    X = np.arange(-1500, 1500, 100)
+    Z = np.arange(-1500, 1500, 100)
+    X, Z = np.meshgrid(X, Z)
+    Y = np.zeros_like(X)
+    ax.plot_surface(X, Y, Z, alpha=0.15, linewidth=1, antialiased=False)
+
     x, y, z = np.split(joints, 3, axis=-1)
     
     if conf is None:
@@ -74,8 +133,11 @@ def draw_3d_skeleton(joints, ax=None, conf=None, joint_type='op26'):
                 zs.append(z[index][0])
 
         if len(xs) == 2:
-            ax.plot3D(xs, ys, zs, color=COLOR_DICT[joint_type][idx])
-            
+            color_ = COLOR_DICT[joint_type][idx]
+            color = [c/255 for c in color_]
+            ax.plot3D(xs, ys, zs, color=color)
+
+    import pdb; pdb.set_trace()
 
 # # Draw SMPL
 
@@ -135,17 +197,16 @@ def render_smpl_on_image(vertices, faces, image, intrinsics, pose, transl,
     cv2.imwrite(filename, (255 * output_img).astype(np.int16))
 
 
-def draw_smpl_body(body_model, body_model_output, filename):
+def draw_smpl_body(body_model, body_model_output, camera_info, filename):
     faces = body_model.faces
     focal_length = 5e3
     cam_pose = np.eye(3)
     cam_transl = np.array([0., 0., 30])
     intrinsics = np.array([[focal_length, 0, 256], [0, focal_length, 256], [0, 0, 1]])
-    background = np.ones([512, 512, 3]) * 180
+    background = np.ones([540, 540, 3]) * 180
 
     vertices = body_model_output.vertices.detach().cpu().numpy()[0]
     render_smpl_on_image(vertices, faces, background, intrinsics, cam_pose, cam_transl, filename=filename)
-
 
 
 # # Draw Syncing result

@@ -4,6 +4,7 @@ from utils import constants as _C
 import os, sys
 import os.path as osp
 import numpy as np
+import pandas as pd
 import json
 
 from tqdm import tqdm
@@ -58,7 +59,8 @@ def refine_ids(prev_ids, curr_ids, curr_joints):
     return prev_ids, curr_ids
 
 
-dates = _C.BASE_RAW_DATA_DIR
+# dates = _C.EXP_DATES
+dates = [sys.argv[1]]
 exps = _C.EXP_SEQUENCES
 base_dir = _C.BASE_RAW_DATA_DIR
 curr_fldr = _C.HD_KEYPOINTS_STAGE1_FLDR
@@ -69,8 +71,11 @@ singular_exps = _C.EXP_SINGULAR
 for date in dates:
     for exp in exps:
         curr_op26_fldr = osp.join(base_dir, date, curr_fldr, exp)
-        if not osp.exists(curr_op26_fldr):
+        target_op26_fldr = osp.join(base_dir, date, target_fldr, exp)
+
+        if (not osp.exists(curr_op26_fldr) or osp.exists(target_op26_fldr)):
             continue
+
         _, _, op26_files = next(os.walk(curr_op26_fldr))
         op26_files = [op26_file for op26_file in op26_files if (op26_file[0] == 'b' and op26_file[-1] == 'n')]
         op26_files.sort()
@@ -177,30 +182,105 @@ for date in dates:
         # Confidence fixation 2
         for i in range(len(ids)):
             conf = joints[i][:, :, -1].copy()
-            # joints[i][:, :, -1][conf == 0] = -1
-            # conf = joints[i][:, :, -1].copy()
 
             # Calculate joints distance between frames
-            dist = np.sqrt(((joints[i][1:, :, :-1] - joints[i][:-1, :, :-1])**2).sum(-1))
-            
+            dist_ = np.sqrt(((joints[i][1:, :, :-1] - joints[i][:-1, :, :-1])**2).sum(-1))
+
             # Mask joints distance with confidence
-            mask = conf > 0
-            dist_mask = np.logical_and(mask[1:], mask[:-1])
-            masked_dist = dist * dist_mask
+            conf_mask_ = conf > 0
+            conf_mask = np.logical_and(conf_mask_[1:], conf_mask_[:-1])
+            dist = dist_ * conf_mask
 
             # Get abnormal frames
-            both_abnormal = np.zeros((conf.shape)).astype(np.bool)
-            abnormal = masked_dist > 40.0
-            both_abnormal[1:-1] = np.logical_or(abnormal[1:], abnormal[:-1])
-            
+            gap_th = 30.0
+            gap_mask = np.zeros((conf.shape)).astype(np.bool)
+            gap_mask_ = dist > gap_th
+            gap_mask[1:-1] = np.logical_or(gap_mask_[1:], gap_mask_[:-1])
+
             # Set abnormal frame confidence as -1
-            conf[both_abnormal] = -1
+            conf[gap_mask] = -1
             joints[i][:, :, -1] = conf
             joints[i][:, :, :-1][conf == -1] = 0
 
-        target_op26_fldr = osp.join(base_dir, date, target_fldr, exp)
-        os.makedirs(target_op26_fldr, exist_ok=True)
+        # # Interpolate missing keypoints
+        # for i in range(len(ids)):
+        #     keypoints = joints[i][:, :, :-1].copy()
+        #     conf = joints[i][:, :, -1].copy()
+        #     conf_mask = conf < 0
 
+        #     # Check if certain keypoint is un-detected for longer than 10 continuous frames
+        #     interp_len_th = 15
+        #     interp_gap_th = 30.0
+        #     interp_mask = np.ones_like(conf_mask).astype(np.bool)
+        #     interp_mask_list = []
+        #     for j in range(1, interp_len_th+1):
+        #         interp_mask_list += [conf_mask[j:conf_mask.shape[0] - interp_len_th + j]]
+
+        #     # Remain those continuously missing keypoints because it is not able to interpolate them
+        #     interp_mask[:-interp_len_th] = np.prod(interp_mask_list, axis=0).astype(np.bool)
+
+        #     # Apply the mask for the following continuous missing points
+        #     for j in range(interp_len_th):
+        #         interp_mask_list[j] = ~interp_mask[j:conf_mask.shape[0] - interp_len_th + j]
+        #     interp_mask[interp_len_th:] = ~np.prod(interp_mask_list, axis=0).astype(np.bool)
+        #     mask = np.logical_and(interp_mask, conf_mask)
+
+        #     # Do not interpolate miscellaneous keypoints (e.g., face, foot)
+        #     misc_idxs = [1, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25]
+        #     mask[:, misc_idxs] = np.logical_and(~mask[:, misc_idxs], conf_mask[:, misc_idxs])
+
+        #     # Isolated (not-continuous) missing points to nan for interpolating
+        #     keypoints[mask] = -1
+        #     keypoints[keypoints == 0] = np.nan
+        #     keypoints[mask] = 0
+        #     conf[mask] = -2
+        #     conf[conf == -1] = np.nan
+        #     conf[mask] = -1
+
+        #     gap_mask = np.zeros_like(mask).astype(np.bool)
+        #     gap_mask_ = np.logical_and(~mask, conf_mask)
+        #     gap_mask[:-1] = ~(gap_mask_[:-1] == gap_mask_[1:])
+        #     gap_mask_idxs = np.where(gap_mask == True)
+        #     gap_mask_frame_idxs_b, gap_mask_frame_idxs_e, gap_mask_joint_idxs = [], [], []
+
+        #     for joint_idx in range(26):
+        #         frame_idxs = np.where(gap_mask[:, joint_idx] == True)[0]
+
+        #         # When the keypoints is missing from the beginning frame, ignore interpolation
+        #         if not len(frame_idxs) % 2 == 0:
+        #             if keypoints[0, joint_idx, 0] < 1e6:
+        #                 keypoints[:frame_idxs[0]+1, joint_idx] = 0
+        #                 conf[:frame_idxs[0]+1, joint_idx] = -1
+        #                 frame_idxs = frame_idxs[1:]
+
+        #         gap_mask_frame_idxs_b += frame_idxs[::2].tolist()
+        #         gap_mask_frame_idxs_e += frame_idxs[1::2].tolist()
+        #         gap_mask_joint_idxs += [joint_idx] * len(gap_mask_frame_idxs_b)
+
+        #     for idx, (frame_idx_b, frame_idx_e, joint_idx) in enumerate(zip(
+        #         gap_mask_frame_idxs_b, gap_mask_frame_idxs_e, gap_mask_joint_idxs)):
+        #         gap_btw_frames = keypoints[frame_idx_b, joint_idx] - keypoints[frame_idx_e+1, joint_idx]
+        #         gap_btw_frames = np.sqrt((gap_btw_frames ** 2).sum(axis=-1))
+
+        #         # If joint moves a lot within disappeared frames, skip interpolation
+        #         if gap_btw_frames > interp_gap_th:
+        #             keypoints[frame_idx_b+1:frame_idx_e+1, joint_idx] = 0
+        #             conf[frame_idx_b+1:frame_idx_e+1, joint_idx] = -1
+
+        #     # Interpolating keypoints by axis
+        #     for k in range(3):
+        #         df = pd.DataFrame(keypoints[:, :, k])
+        #         df = df.interpolate(area='inside', method='index')
+        #         keypoints[:, :, k] = np.array(df)
+
+        #     # Interpolating confidence by axis
+        #     df = pd.DataFrame(conf)
+        #     df = df.interpolate(area='inside', method='index')
+        #     conf = np.array(df)
+
+        #     joints[i] = np.concatenate((keypoints, conf[:, :, None]), axis=-1)
+        
+        os.makedirs(target_op26_fldr, exist_ok=True)
         for i, op26_file in enumerate(tqdm(op26_files[-len(joints[0]):], 
                                       desc='Writing Data for %s %s'%(date, exp), leave=False)):
             file_info = dict()

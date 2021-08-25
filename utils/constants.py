@@ -10,10 +10,13 @@ BASE_RAW_DATA_DIR = 'dataset/MBL_DomeData/dome_data'
 VGA_KEYPOINTS_STAGE1_FLDR = 'vgaPose3d_stage1_op25'
 HD_KEYPOINTS_STAGE1_FLDR = 'hdPose3d_stage1_op25'
 HD_KEYPOINTS_STAGE2_FLDR = 'hdPose3d_stage2_op25'
-
+HD_KEYPOINTS_STAGE3_FLDR = 'hdPose3d_stage3_op25'
 IMAGE_FLDR = 'skeleton_video'
-
-RAW_IMU_DIR = 'dataset/dome_IMU'
+HD_RAW_VIDEO_FLDR = 'hdVideo_raw'
+HD_EXTRACTED_VIDEO_FLDR = 'hdVideo_extracted'
+HD_UNDIST_VIDEO_FLDR = 'hdVideo_undist'
+CAMERA_CALIB_FILENAME = 'calib_norm.json'
+RAW_IMU_DIR = 'dataset/MBL_DomeData/dome_data/raw_IMU'
 SYNCED_IMU_FLDR = 'mc10_IMU'
 
 SEGMENTED_DATA_FLDR = 'Processed'
@@ -22,8 +25,9 @@ SEGMENTED_IMU_FLDR = 'MC10_IMU'
 ACTION_LABEL_FILENAME = 'action_label.xlsx'
 
 # IMU sensor list
-IMU_PARTS = ['chest', 'head', 'lbicep', 'lfoot', 'lforearm', 'lhand', 'lshank', 'lthigh',
-             'rbicep', 'rfoot', 'rforearm', 'rhand', 'rshank', 'rthigh', 'sacrum']
+IMU_PARTS = ['sacrum', 'chest', 'head', 
+             'lbicep', 'lfoot', 'lforearm', 'lhand', 'lshank', 'lthigh',
+             'rbicep', 'rfoot', 'rforearm', 'rhand', 'rshank', 'rthigh']
 INDEX_COL = 'Timestamp (microseconds)'
 SENSORS = ['accel', 'gyro']
 

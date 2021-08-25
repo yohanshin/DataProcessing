@@ -1,4 +1,4 @@
-from utils import constants
+from utils import constants as _C
 from smplify.prior import *
 
 import torch
@@ -40,7 +40,7 @@ class SMPLifyLoss(nn.Module):
                  **kwargs):
         super(SMPLifyLoss, self).__init__()
         
-        self.J_regressor = torch.from_numpy(np.load(constants.JOINT_REGRESSOR_H36M)).float()
+        self.J_regressor = torch.from_numpy(np.load(_C.JOINT_REGRESSOR_H36M)).float()
         
         self.rho = rho
         self.body_pose_prior = body_pose_prior
@@ -98,7 +98,7 @@ class SMPLifyLoss(nn.Module):
 
         if self.joint_type == 'h36m':
             pred_joints = torch.matmul(
-                J_regressor, body_model_output.vertices)[:, constants.H36M_TO_J17, :]
+                J_regressor, body_model_output.vertices)[:, _C.H36M_TO_J17, :]
         else:
             pred_joints = body_model_output.joints[:, :25]
 

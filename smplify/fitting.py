@@ -51,9 +51,7 @@ class FittingLoop(object):
 
                 prev_loss = loss.item()
                 msg = "Loss : %.3f"%(prev_loss)
-                prog_bar.set_postfix_str(msg)
-                prog_bar.update(1)
-                prog_bar.refresh()
+                prog_bar.set_postfix_str(msg); prog_bar.update(1); prog_bar.refresh()
         
         return prev_loss
 

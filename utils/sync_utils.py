@@ -94,10 +94,10 @@ def resample_IMU_data(accel):
     """
 
     # To fine-tune indexing interpolation
-    accel.index = (accel.index * 1000)
+    accel.index = (accel.index)
 
     # Generate empty data with constant FPS
-    trg_period = 1e9 / fps_imu
+    trg_period = 1e6 / fps_imu
     trg_num_data = int((accel.index[-1] - accel.index[0])/trg_period)
     res_index_ = [accel.index[0] + trg_period*(i+1) for i in range(trg_num_data)]
     
@@ -106,14 +106,31 @@ def resample_IMU_data(accel):
     empty_data = pd.Series(index=res_index)
 
     # INterpolate at constant data FPS points
-    accel = accel.append(empty_data).sort_index(axis=0)
+    accel = accel.append(empty_data, verify_integrity=True).sort_index(axis=0)
     accel = accel.interpolate(limit_area='inside', method='index')
 
     # Extract data with resampled index
     res_accel = accel[res_index_]
-    res_accel.index = (res_accel.index / 1e3).astype('int64')
+    res_accel.index = (res_accel.index).astype('int64')
     
     return res_accel
+
+
+def add_dummy_IMU_data(accel, num_dummy):
+    """
+    When the start of IMU data collection is later than OpenPose record,
+    add dummy IMU data at the beginning so that syncing can be processed.
+    """
+
+    # 
+    trg_period = 1e6 / fps_imu
+    new_index_ = [accel.index[0] - trg_period*(i+1) for i in range(num_dummy)]
+    new_index = pd.Index(new_index_).astype('int64')
+    empty_data = pd.Series(index=new_index)
+
+    accel = accel.append(empty_data, verify_integrity=True).sort_index(axis=0)
+    
+    return accel
 
 
 def generate_peaks(data, thresh=2):
@@ -183,13 +200,12 @@ def delete_overlap_index(d_index, s_index):
     Check and delete overlapped index which exists in both raw and synced data
     """
 
-    sampling_period = 1e6 / fps_imu
-    o_index = d_index[d_index - s_index[0] > (-1)*sampling_period]
-    o_index = o_index[o_index - s_index[-1] < sampling_period]
-    o_index = o_index[(o_index - s_index[0]) % sampling_period == 0]
-    
-    if len(o_index) is not 0:
-        s_index = s_index.drop(o_index)
+    d_df = pd.DataFrame(index=d_index)
+    s_df = pd.DataFrame(index=s_index)
+    i_df = d_df.append(s_df).sort_index(axis=0)
+    duplicated_index = i_df.index[i_df.index.duplicated(keep='first')]
+    s_df = s_df.drop(duplicated_index)
+    s_index = s_df.index
     
     return s_index
 
@@ -233,4 +249,4 @@ def calculate_accel_from_keypoints(keypoints, idx=2):
     accel_ = np.ones(accel.shape[0] + 2)
     accel_[1:-1] = accel
 
-    return accel, height
+    return accel_, height

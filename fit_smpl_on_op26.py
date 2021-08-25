@@ -1,12 +1,15 @@
 from smpl import build_body_model
 from smplify.smplify import SMPLify3D
 from smplify.loss import align_two_joints
-from utils.load_data import load_op26
 
+from utils.load_data import load_op26
 from utils.geometry import rot6d_to_rotmat
-from utils.viz import draw_3d_skeleton, draw_smpl_body
+from utils.viz import draw_3d_skeleton, draw_smpl_body, draw_2d_skeleton
+from utils.viz_utils import project2D
 from utils.sync_utils import refine_params
-from utils import constants
+from utils import constants as _C
+
+from generate_dome_video import camera_info
 
 import torch
 from torch import nn
@@ -19,6 +22,8 @@ import cv2
 from tqdm import tqdm, trange
 import os
 import os.path as osp
+
+# To enabling draw smpl model in remote environment
 os.environ['PYOPENGL_PLATFORM'] = 'egl'
 
 __author__ = "Soyong Shin"
@@ -36,28 +41,27 @@ optimizer_type = 'adam'
 
 # Loss weight
 joint_dist_weights = [1e4] * 4
-body_pose_prior_weights = [10.0, 4.0, 2.0, 0.5]
-shape_prior_weight = [1e2, 2 * 1e1, 1e1, 4.0]
+body_pose_prior_weights = [20.0, 10.0, 10.0, 3.0]
+shape_prior_weight = [1e2, 2 * 1e1, 1e1, 1e1]
 
 # # Exp configuration TODO: Make it as a parser
-# dates = ['190503', '190510', '190517', '190607']
-dates = ['190510']
-exps = ['exp01', 'exp02', 'exp03', 'exp04', 'exp05', 'exp06', 'exp07', 'exp08', 'exp09', 'exp10', 'exp11', 'exp12', 'exp13', 'exp14']
-sids = [1, 2]
-base_dir = 'dataset/MBL_DomeData/dome_data'
-fldr_op26 = 'hdPose3d_stage1_op25'
-fldr_raw_imu = 'dataset/dome_IMU'
-fldr_result = 'smpl_result'
-fldr_image = 'smpl_fit_video'
-fldr_smplify = 'dataset/3D_SMPLify'
+dates = _C.EXP_DATES
+exps = _C.EXP_SEQUENCES
+sids = _C.EXP_SUBJECTS
+base_dir = _C.BASE_RAW_DATA_DIR
+op26_fldr_ = _C.HD_KEYPOINTS_STAGE2_FLDR
+raw_imu_fldr = _C.RAW_IMU_DIR
+result_fldr = 'smpl_result'
+image_fldr = 'smpl_fit_video'
+smplify_fldr = 'dataset/3D_SMPLify'
 
 # # SMPL configuration
 model_type = 'smpl'
-body_model_folder = osp.join(fldr_smplify, 'models', model_type)
-SMPL_regressor = osp.join(fldr_smplify, 'J_regressor_extra.npy')
+body_model_folder = osp.join(smplify_fldr, 'models', model_type)
+SMPL_regressor = osp.join(smplify_fldr, 'J_regressor_extra.npy')
 
 # SMPL mean params
-mean_params = np.load(osp.join(fldr_smplify, 'smpl_mean_params.npz'))
+mean_params = np.load(osp.join(smplify_fldr, 'smpl_mean_params.npz'))
 init_pose = torch.from_numpy(mean_params['pose'][:]).unsqueeze(0).expand(batch_size, -1)
 init_betas = torch.from_numpy(mean_params['shape'][:].astype('float32')).unsqueeze(0)
 init_pose = init_pose.to(device=device).expand(batch_size, -1)
@@ -70,11 +74,11 @@ init_pose = init_pose[:, 1:]
 joint_type = 'op25'
 if joint_type == 'h36m':
     ign_joint_idx = None
-    joint_mapping = constants.OP26_TO_J17
+    joint_mapping = _C.OP26_TO_J17
     eval_idx = [i for i in range(14)]
 elif joint_type == 'op25':
     ign_joint_idx = [1, 8, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24]      # Pelvis, Chest (Neck) seems not corresponding to OP25
-    joint_mapping = constants.OP26_TO_OP25
+    joint_mapping = _C.OP26_TO_OP25
     eval_idx = [0, 2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13, 14]
 else:
     NotImplementedError, "Joint type {} is not implemented. Check again".format(joint_type)
@@ -90,23 +94,25 @@ for date in dates:
     for exp in exps:
         
         if save_image:
-            fldr_save_image = osp.join(base_dir, date, fldr_image, exp)
-            os.makedirs(fldr_save_image, exist_ok=True)
-            if osp.exists(osp.join(base_dir, date, fldr_image, '%s.mp4'%exp)):
-                continue
+            save_image_fldr = osp.join(base_dir, date, image_fldr, exp)
+            os.makedirs(save_image_fldr, exist_ok=True)
+            video_fldr = osp.join(base_dir, date, image_fldr)
         
-        output = {}
-        output['SMPL_params'] = []
-        table_dtype = np.dtype([
-                ('smpl_pose', np.float32, 69),
-                ('smpl_betas', np.float32, 10),
-                ('smpl_global_orient', np.float32, 3)])
+        for sidx, sid in enumerate(sids):
+            output = {}
+            output['SMPL_params'] = []
+            table_dtype = np.dtype([
+                    ('smpl_pose', np.float32, 69),
+                    ('smpl_betas', np.float32, 10),
+                    ('smpl_global_orient', np.float32, 3)])
 
-        for sid in sids:
+            video_name = '%s_%s.mp4'%(exp, sid)
+            if osp.exists(osp.join(video_fldr, video_name)):
+                continue
 
             # Load IMU annotation ==> Sex information
-            fldr_anno = osp.join(fldr_raw_imu, 'Set%02d'%sid)
-            annotation = pd.read_csv(osp.join(fldr_anno, 'Set%02d_annotations.csv'%sid), index_col='EventType')
+            anno_fldr = osp.join(raw_imu_fldr, sid)
+            annotation = pd.read_csv(osp.join(anno_fldr, '%s_annotations.csv'%sid), index_col='EventType')
             sex_info = annotation[['Value', 'Date', 'Exp']].loc['What is your sex?']
             sex_info = sex_info.loc[sex_info['Date'] == int(date)]
             sex = sex_info.loc[sex_info['Exp'] == int(exp[-2:])]['Value'][0].lower()
@@ -115,19 +121,28 @@ for date in dates:
             body_model = build_body_model(body_model_folder, SMPL_regressor, batch_size, device, sex)
 
             # Load KP data
-            fldr_kp = osp.join(base_dir, date, fldr_op26, exp)
-            keypoints, _ = load_op26(fldr_kp)
+            op26_fldr = osp.join(base_dir, date, op26_fldr_, exp)
+            keypoints, _ = load_op26(op26_fldr, 7000)
             
             try:
-                keypoints = keypoints[sid-1].copy()
+                keypoints = keypoints[sidx].copy()
             except:
                 continue
             
-            # keypoints = keypoints[1350:]
+            if sidx == 0:
+                keypoints = keypoints[4000:4500]
+            else:
+                keypoints = keypoints[5500:6000]
+
             keypoints = torch.from_numpy(keypoints).to(device=device, dtype=dtype)
 
-            J_regressor = torch.from_numpy(np.load(constants.JOINT_REGRESSOR_H36M)).float()
+            J_regressor = torch.from_numpy(np.load(_C.JOINT_REGRESSOR_H36M)).float()
             J_regressor = J_regressor[None, :].expand(batch_size, -1, -1).to(device)
+            
+            if save_image:
+                x2d, mask = project2D(keypoints.detach().cpu().numpy(), 540, 360,
+                                        camera_info['K'], camera_info['R'], camera_info['t'])
+                x2d[~mask] = 0
 
             with tqdm(total=keypoints.shape[0], leave=False) as prog_bar:
                 for idx in range(keypoints.shape[0]):
@@ -149,7 +164,7 @@ for date in dates:
                     
                     if joint_type == 'h36m':
                         keypoints_3d_pred = torch.matmul(
-                            J_regressor, opt_output.vertices)[:, constants.H36M_TO_J17, :]
+                            J_regressor, opt_output.vertices)[:, _C.H36M_TO_J17, :]
                     elif joint_type == 'op25':
                         keypoints_3d_pred = opt_output.joints[:, :25]
 
@@ -167,12 +182,25 @@ for date in dates:
                     output['SMPL_params'].append(table_segment)
 
                     if save_image:
-                        draw_smpl_body(body_model, opt_output, filename=osp.join(fldr_save_image, 'smpl.png'))
-                        img = cv2.imread(osp.join(fldr_save_image, 'smpl.png'))
+                        op26_background = np.ones((540, 540, 3)).astype(np.uint8) * 255
+                        img = np.ones((540, 1080, 3)).astype(np.uint8) * 255
+                        x = x2d[idx, :, 0].astype('int32')
+                        y = x2d[idx, :, 1].astype('int32')
+                        op26_img = draw_2d_skeleton(x, y, op26_background.copy(), 0, "op26")
+                        
+                        draw_smpl_body(body_model, opt_output, camera_info, 
+                                       filename=osp.join(save_image_fldr, 'smpl.png'))
+                        smpl_img = cv2.imread(osp.join(save_image_fldr, 'smpl.png'))
                         img_n = "dome_video_%08d.jpg"%idx
-                        cv2.imwrite(osp.join(fldr_save_image, img_n), img)
-                    
+                        
+                        img[:, :540] = smpl_img
+                        img[:, 540:] = op26_img
+                        cv2.imwrite(osp.join(save_image_fldr, img_n), img)
+
             output['SMPL_params'] = np.concatenate(output['SMPL_params'])
-            fldr_output = osp.join(base_dir, date, fldr_result)
-            os.makedirs(fldr_output, exist_ok=True)
-            np.save(osp.join(fldr_output, '%s_sid%02d'%(exp, sid)), output)
+            output_fldr = osp.join(base_dir, date, result_fldr)
+            os.makedirs(output_fldr, exist_ok=True)
+            np.save(osp.join(output_fldr, '%s_sid%02d'%(exp, sidx)), output)
+
+            os.system("ffmpeg -framerate 29.97 -start_number 0 -i {}/dome_video_%08d.jpg".format(save_image_fldr) + " -vcodec mpeg4 {}".format(osp.join(video_fldr, video_name)))
+            os.system("echo y")

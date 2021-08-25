@@ -157,9 +157,8 @@ class SMPLify3D(nn.Module):
             maxiters = self.maxiters
             st_stage = 0
         else:
-            # maxiters = int(self.maxiters/2)
-            maxiters = self.maxiters
-            st_stage = 2
+            maxiters = int(self.maxiters/2)
+            st_stage = 3
 
         opt_weights_dict = {'joint_dist_weight': [w for w in self.joint_dist_weights[st_stage:]],
                             'body_pose_weight': [w for w in self.body_pose_prior_weights[st_stage:]],
@@ -196,17 +195,17 @@ class SMPLify3D(nn.Module):
                 loss_function.reset_loss_weights(curr_weights)
 
                 closure = floop.create_fitting_closure(optimizer=optimizer,
-                                                        body_model=body_model,
-                                                        gt_joints=gt_joints,
-                                                        loss=loss_function,
-                                                        joint_conf=joint_conf,
-                                                        create_graph=False)
+                                                       body_model=body_model,
+                                                       gt_joints=gt_joints,
+                                                       loss=loss_function,
+                                                       joint_conf=joint_conf,
+                                                       create_graph=False)
 
                 loss = floop.run_optimization(optimizer=optimizer,
-                                                closure=closure,
-                                                params=final_params,
-                                                body_model=body_model,
-                                                stage=open_idx)
+                                              closure=closure,
+                                              params=final_params,
+                                              body_model=body_model,
+                                              stage=open_idx)
 
         output = [body_model.body_pose, body_model.betas, body_model.global_orient]
 

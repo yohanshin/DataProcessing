@@ -13,13 +13,18 @@ from tqdm import tqdm
 __author__ = "Soyong Shin"
 
 
-dates = _C.EXP_DATES
-exps = _C.EXP_SEQUENCES
-singular_exps = _C.EXP_SINGULAR
+# dates = _C.EXP_DATES
+# exps = _C.EXP_SEQUENCES
+dates = ['190607']
+exps = ['exp13']
+
 sids = _C.EXP_SUBJECTS
+
+singular_exps = _C.EXP_SINGULAR
 part_list = _C.IMU_PARTS
 
-base_dir = _C.BASE_RAW_DATA_DIR
+# base_dir = _C.BASE_RAW_DATA_DIR
+base_dir = '/home/kjp/Data/dome_data'
 op26_fldr_ = _C.HD_KEYPOINTS_STAGE2_FLDR
 imu_fldr_ = _C.SYNCED_IMU_FLDR
 target_fldr_ = _C.SEGMENTED_DATA_FLDR
@@ -30,6 +35,7 @@ label_filename = _C.ACTION_LABEL_FILENAME
 label = pd.read_excel(osp.join(base_dir, label_filename), sheet_name='action labels', index_col=1)
 action_list_ = label.index[4:-1].tolist()
 action_list = [action[:-4] for action in action_list_ if action[-3:] == 'end']
+action_list += ['whole_motion']
 
 for date in dates:
     for exp in tqdm(exps, desc='Processing date %s'%date, leave=False):
@@ -43,6 +49,7 @@ for date in dates:
         op26_files = [op26_file for op26_file in op26_files if (op26_file[0] == 'b' and op26_file[-1] == 'n')]
         op26_files.sort()
         begin_idx = int(op26_files[0].split('.')[0].split('_')[-1])
+        end_idx = int(op26_files[-1].split('.')[0].split('_')[-1])
         
         for sid in sids:
             # Extract current experiment label
@@ -51,7 +58,6 @@ for date in dates:
                 continue
             
             curr_label = label[exp_name]
-            
             if '_'.join((date, exp)) in singular_exps:
                 assert len(joints) == 1, "Current experiment %s has %d subjects"%(exp_name, len(joints))
                 curr_joints = joints[0]
@@ -69,23 +75,34 @@ for date in dates:
             imu_fldr = osp.join(base_dir, date, imu_fldr_, sid, exp)
             
             subject_id = 'S%02d'%curr_label.loc['Subject ID']
-            if osp.exists(osp.join(base_dir, target_fldr_, subject_id)):
-                continue
 
             for action in tqdm(action_list, desc='Segmenting activities', leave=False):
-                # Action not recorded, ignore the loop
-                if pd.isna(curr_label.loc['_'.join((action, 'start'))]):
-                    continue
+                if osp.exists(osp.join(base_dir, target_fldr_, subject_id, action)):
+                    # continue
+                    pass
                 
+                if action == 'whole_motion':
+                    pad = 20
+                    begin_idx_ = int(curr_label.loc['_'.join(('hopping', 'start'))] - begin_idx - pad)
+                    end_idx_ = int(curr_label.loc['_'.join(('high_jump', 'end'))] - begin_idx + pad)
+                    op26_start_idx = max([begin_idx, begin_idx_])
+                    op26_end_idx = min([end_idx, end_idx_])
+
+                else:
+                    # Action not recorded, ignore the loop
+                    if pd.isna(curr_label.loc['_'.join((action, 'start'))]):
+                        continue
+
+                    op26_start_idx = int(curr_label.loc['_'.join((action, 'start'))] - begin_idx)
+                    op26_end_idx = int(curr_label.loc['_'.join((action, 'end'))] - begin_idx)
+                
+                imu_start_idx = op26_start_idx * 5
+                imu_end_idx = op26_end_idx * 5
+
                 target_fldr = osp.join(base_dir, target_fldr_, subject_id, action)
                 os.makedirs(osp.join(target_fldr, target_op26_fldr), exist_ok=True)
                 os.makedirs(osp.join(target_fldr, target_imu_fldr), exist_ok=True)
 
-                op26_start_idx = int(curr_label.loc['_'.join((action, 'start'))] - begin_idx)
-                op26_end_idx = int(curr_label.loc['_'.join((action, 'end'))] - begin_idx)
-                imu_start_idx = op26_start_idx * 5
-                imu_end_idx = op26_end_idx * 5
-                
                 curr_action_joints = curr_joints[op26_start_idx:op26_end_idx].copy()
                 curr_action_op26_files = op26_files[op26_start_idx:op26_end_idx]
                 
